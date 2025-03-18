@@ -1,6 +1,7 @@
 import asyncio
 from autogen_core.models import UserMessage
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+import streamlit as st
 
 model_client = OpenAIChatCompletionClient(
     model="gemini-1.5-flash-8b",
@@ -12,8 +13,6 @@ async def test_model():
     print(response.content.strip())
 
 asyncio.run(test_model())
-
-import streamlit as st
 
 st.title("🏠 Welcome to My Streamlit App!")
 st.write("Use the sidebar to navigate through different pages.")
