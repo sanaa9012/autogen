@@ -3,11 +3,17 @@ from autogen_core.models import UserMessage
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 import streamlit as st
 from jinja2 import Template
+from dotenv import load_dotenv
+import os
+import google.generativeai as genai
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Initialize OpenAI Client
 model_client = OpenAIChatCompletionClient(
     model="gemini-1.5-flash-8b",
-    api_key="AIzaSyBQz63m0H2YXs3oNYMXTO-G5hmN8uRKTmk",
+    api_key=os.getenv("GOOGLE_API_KEY")
 )
 
 # Inject CSS for better UI
