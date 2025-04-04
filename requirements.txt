@@ -30,3 +30,9 @@ typing-extensions==4.12.2
 urllib3==2.3.0
 wrapt==1.17.2
 zipp==3.21.0
+streamlit
+jinja2
+python-dotenv
+supabase
+google-generativeai
+pyautogen

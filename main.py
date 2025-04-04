@@ -5,26 +5,34 @@ import streamlit as st
 from jinja2 import Template
 from dotenv import load_dotenv
 import os
-import google.generativeai as genai
+from supabase import create_client, Client
 
+# Load environment variables
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Initialize OpenAI Client
+# Supabase credentials
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+
+if not url or not key:
+    raise ValueError("Supabase URL and Key must be set in environment variables.")
+
+# Initialize Supabase client
+supabase: Client = create_client(url, key)
+
+# Initialize AI Model Client
 model_client = OpenAIChatCompletionClient(
     model="gemini-1.5-flash-8b",
     api_key=os.getenv("GOOGLE_API_KEY")
 )
 
 # Inject CSS for better UI
-# background-color: #2b313e;
 css = '''
 <style>
 .chat-message {
     padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; display: flex;
 }
 .chat-message.user {
-    
     background-color: #475063;
 }
 .chat-message.bot {
@@ -77,33 +85,45 @@ async def get_response(user_input):
     response = await model_client.create([UserMessage(content=user_input, source="user")])
     return response.content.strip()
 
-# Streamlit UI
-st.write("Use the sidebar to navigate through different pages.")
+# Function to store chat messages in Supabase
+def store_chat(user_msg, bot_msg):
+    data = {
+        "user_message": user_msg,
+        "bot_response": bot_msg,
+    }
+    supabase.table("chat_history").insert(data).execute()
 
-# Chatbot Section
+# Function to fetch chat history from Supabase
+def fetch_chat_history():
+    response = supabase.table("chat_history").select("*").order("id", desc=True).execute()
+    return response.data if response.data else []
+
+# Streamlit UI
 st.header("💬 Chat with AI")
 
 # Initialize session state for chat history
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    st.session_state.chat_history = fetch_chat_history()
 
 # Input box for user query
 user_query = st.text_input("Ask your question:")
 
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
 if st.button("Ask"):
     if user_query:
         with st.spinner("Thinking..."):
-            response = asyncio.run(get_response(user_query))
-            st.session_state.chat_history.append((user_query, response))  # Store chat in history
-            
-        # # Render chat messages using the template
-        # st.markdown(render_message(user_template, user_query), unsafe_allow_html=True)
-        # st.markdown(render_message(bot_template, response), unsafe_allow_html=True)
-    else:
-        st.warning("Please enter a question!")
+            response_future = asyncio.run_coroutine_threadsafe(get_response(user_query), loop)
+            response = response_future.result()
 
-# # ------ Display Chat History ------
-# st.subheader("Chat History")
-for user_msg, bot_msg in reversed(st.session_state.chat_history):
-    st.markdown(render_message(user_template, user_msg), unsafe_allow_html=True)
-    st.markdown(render_message(bot_template, bot_msg), unsafe_allow_html=True)
+            # Store chat in Supabase
+            store_chat(user_query, response)
+
+            # Store chat in session state
+            st.session_state.chat_history.insert(0, {"user_message": user_query, "bot_response": response})
+
+# Display Chat History
+for chat in st.session_state.chat_history:
+    st.markdown(render_message(user_template, chat["user_message"]), unsafe_allow_html=True)
+    st.markdown(render_message(bot_template, chat["bot_response"]), unsafe_allow_html=True)
