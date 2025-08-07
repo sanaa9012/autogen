@@ -35,4 +35,4 @@ jinja2
 python-dotenv
 supabase
 google-generativeai
-pyautogen
+ag2
